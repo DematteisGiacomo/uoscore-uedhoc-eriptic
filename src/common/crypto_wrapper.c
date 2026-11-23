@@ -671,6 +671,113 @@ enum err WEAK shared_secret_derive(enum ecdh_alg alg,
 	return crypto_operation_not_implemented;
 }
 
+#ifdef MBEDTLS
+static enum err shared_secret_derive_psa(enum ecdh_alg alg, psa_key_id_t sk_id,
+					 const struct byte_array *pk,
+					 uint8_t *shared_secret)
+{
+	size_t pk_decompressed_len;
+	size_t shared_secret_len = 0;
+	uint8_t pk_decompressed[P_256_PUB_KEY_UNCOMPRESSED_SIZE];
+
+	if (alg != P256) {
+		return unsupported_ecdh_curve;
+	}
+
+	TRY_EXPECT_PSA(psa_crypto_init(), PSA_SUCCESS, PSA_KEY_ID_NULL,
+		       unexpected_result_from_ext_lib);
+
+	TRY_EXPECT_PSA(crypto_p256_uncompress_point(
+			       pk->ptr, pk->len, pk_decompressed,
+			       &pk_decompressed_len, sizeof(pk_decompressed)),
+		       PSA_SUCCESS, PSA_KEY_ID_NULL,
+		       unexpected_result_from_ext_lib);
+
+	TRY_EXPECT_PSA(
+		psa_raw_key_agreement(PSA_ALG_ECDH, sk_id, pk_decompressed,
+				      pk_decompressed_len, shared_secret,
+				      P_256_PRIV_KEY_SIZE, &shared_secret_len),
+		PSA_SUCCESS, PSA_KEY_ID_NULL, unexpected_result_from_ext_lib);
+
+	if (shared_secret_len != P_256_PRIV_KEY_SIZE) {
+		return unexpected_result_from_ext_lib;
+	}
+
+	return ok;
+}
+#endif /* MBEDTLS */
+
+enum err WEAK ephemeral_dh_key_gen_psa(enum ecdh_alg alg, uint32_t *sk_id,
+				       struct byte_array *pk)
+{
+#ifdef MBEDTLS
+	psa_status_t status;
+	psa_key_id_t key_id = PSA_KEY_ID_NULL;
+	psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
+	size_t public_key_len = 0;
+	uint8_t pub_key_uncompressed[P_256_PUB_KEY_UNCOMPRESSED_SIZE];
+
+	*sk_id = PSA_KEY_ID_NULL;
+
+	if (alg != P256) {
+		return unsupported_ecdh_curve;
+	}
+
+	if (P_256_PUB_KEY_X_CORD_SIZE > pk->len) {
+		return buffer_to_small;
+	}
+
+	TRY_EXPECT_PSA(psa_crypto_init(), PSA_SUCCESS, PSA_KEY_ID_NULL,
+		       unexpected_result_from_ext_lib);
+
+	psa_set_key_lifetime(&attr, PSA_KEY_LIFETIME_VOLATILE);
+	psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_DERIVE);
+	psa_set_key_algorithm(&attr, PSA_ALG_ECDH);
+	psa_set_key_type(&attr,
+			 PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
+	psa_set_key_bits(&attr, PSA_BYTES_TO_BITS(P_256_PRIV_KEY_SIZE));
+
+	TRY_EXPECT_PSA(psa_generate_key(&attr, &key_id), PSA_SUCCESS,
+		       PSA_KEY_ID_NULL, unexpected_result_from_ext_lib);
+
+	status = psa_export_public_key(key_id, pub_key_uncompressed,
+				       sizeof(pub_key_uncompressed),
+				       &public_key_len);
+	if ((status != PSA_SUCCESS) ||
+	    (public_key_len != P_256_PUB_KEY_UNCOMPRESSED_SIZE)) {
+		psa_destroy_key(key_id);
+		return unexpected_result_from_ext_lib;
+	}
+
+	memcpy(pk->ptr, pub_key_uncompressed + 1, P_256_PUB_KEY_X_CORD_SIZE);
+	pk->len = P_256_PUB_KEY_X_CORD_SIZE;
+	*sk_id = key_id;
+	return ok;
+#else
+	(void)alg;
+	(void)sk_id;
+	(void)pk;
+	return crypto_operation_not_implemented;
+#endif
+}
+
+enum err WEAK shared_secret_derive_key(enum ecdh_alg alg,
+				       const struct byte_array *sk,
+				       uint32_t sk_id,
+				       const struct byte_array *pk,
+				       uint8_t *shared_secret)
+{
+	if ((0 != sk->len) || (0 == sk_id)) {
+		return shared_secret_derive(alg, sk, pk, shared_secret);
+	}
+#ifdef MBEDTLS
+	return shared_secret_derive_psa(alg, (psa_key_id_t)sk_id, pk,
+					shared_secret);
+#else
+	return crypto_operation_not_implemented;
+#endif
+}
+
 enum err WEAK ephemeral_dh_key_gen(enum ecdh_alg alg, uint32_t seed,
 				   struct byte_array *sk, struct byte_array *pk)
 {

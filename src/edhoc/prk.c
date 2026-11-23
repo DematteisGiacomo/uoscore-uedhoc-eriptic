@@ -25,13 +25,15 @@
 enum err prk_derive(bool static_dh_auth, struct suite suite, uint8_t label,
 		    struct byte_array *context, const struct byte_array *prk_in,
 		    const struct byte_array *stat_pk,
-		    const struct byte_array *stat_sk, uint8_t *prk_out)
+		    const struct byte_array *stat_sk, uint32_t stat_sk_id,
+		    uint8_t *prk_out)
 {
 	if (static_dh_auth) {
 		BYTE_ARRAY_NEW(dh_secret, ECDH_SECRET_SIZE, ECDH_SECRET_SIZE);
 
-		TRY(shared_secret_derive(suite.edhoc_ecdh, stat_sk, stat_pk,
-					 dh_secret.ptr));
+		TRY(shared_secret_derive_key(suite.edhoc_ecdh, stat_sk,
+					     stat_sk_id, stat_pk,
+					     dh_secret.ptr));
 		PRINT_ARRAY("dh_secret", dh_secret.ptr, dh_secret.len);
 
 		BYTE_ARRAY_NEW(salt, HASH_SIZE, get_hash_len(suite.edhoc_hash));

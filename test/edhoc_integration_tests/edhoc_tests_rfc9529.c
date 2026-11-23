@@ -16,6 +16,9 @@
 #include <edhoc.h>
 #include "txrx_wrapper.h"
 #include "edhoc_test_vectors_rfc9529.h"
+#include "common/crypto_wrapper.h"
+
+#include <psa/crypto.h>
 
 volatile uint8_t msg_cnt = 1;
 
@@ -213,7 +216,8 @@ void test_edhoc_responder_x509_x5t_rfc9529(void)
 }
 
 static void initiator_static_dh_kid(const struct rfc9529_messages *m,
-				    const uint8_t *prk_out)
+				    const uint8_t *prk_out, uint32_t x_key_id,
+				    uint32_t i_key_id)
 {
 	enum err r;
 	struct other_party_cred cred_r;
@@ -246,12 +250,14 @@ static void initiator_static_dh_kid(const struct rfc9529_messages *m,
 	c_i.cred_i.ptr = (uint8_t *)T2_RFC9529__CRED_I;
 	c_i.g_x.len = T2_RFC9529__G_X_LEN;
 	c_i.g_x.ptr = (uint8_t *)T2_RFC9529__G_X;
-	c_i.x.len = T2_RFC9529__X_LEN;
-	c_i.x.ptr = (uint8_t *)T2_RFC9529__X;
+	c_i.x.len = (0 == x_key_id) ? T2_RFC9529__X_LEN : 0;
+	c_i.x.ptr = (0 == x_key_id) ? (uint8_t *)T2_RFC9529__X : NULL;
+	c_i.x_key_id = x_key_id;
 	c_i.g_i.len = T2_RFC9529__G_I_LEN;
 	c_i.g_i.ptr = (uint8_t *)T2_RFC9529__G_I;
-	c_i.i.len = T2_RFC9529__I_LEN;
-	c_i.i.ptr = (uint8_t *)T2_RFC9529__I;
+	c_i.i.len = (0 == i_key_id) ? T2_RFC9529__I_LEN : 0;
+	c_i.i.ptr = (0 == i_key_id) ? (uint8_t *)T2_RFC9529__I : NULL;
+	c_i.i_key_id = i_key_id;
 	c_i.sk_i.len = 0;
 	c_i.sk_i.ptr = NULL;
 	c_i.pk_i.len = 0;
@@ -284,7 +290,8 @@ static void initiator_static_dh_kid(const struct rfc9529_messages *m,
 
 static void responder_static_dh_kid(const struct rfc9529_messages *m,
 				    const uint8_t *id_c_r, uint32_t id_c_r_len,
-				    const uint8_t *prk_out)
+				    const uint8_t *prk_out, uint32_t y_key_id,
+				    uint32_t r_key_id)
 {
 	enum err r;
 	struct other_party_cred cred_i;
@@ -316,12 +323,14 @@ static void responder_static_dh_kid(const struct rfc9529_messages *m,
 	c_r.cred_r.ptr = (uint8_t *)T2_RFC9529__CRED_R;
 	c_r.g_y.len = T2_RFC9529__G_Y_LEN;
 	c_r.g_y.ptr = (uint8_t *)T2_RFC9529__G_Y;
-	c_r.y.len = T2_RFC9529__Y_LEN;
-	c_r.y.ptr = (uint8_t *)T2_RFC9529__Y;
+	c_r.y.len = (0 == y_key_id) ? T2_RFC9529__Y_LEN : 0;
+	c_r.y.ptr = (0 == y_key_id) ? (uint8_t *)T2_RFC9529__Y : NULL;
+	c_r.y_key_id = y_key_id;
 	c_r.g_r.len = T2_RFC9529__G_R_LEN;
 	c_r.g_r.ptr = (uint8_t *)T2_RFC9529__G_R;
-	c_r.r.len = T2_RFC9529__R_LEN;
-	c_r.r.ptr = (uint8_t *)T2_RFC9529__R;
+	c_r.r.len = (0 == r_key_id) ? T2_RFC9529__R_LEN : 0;
+	c_r.r.ptr = (0 == r_key_id) ? (uint8_t *)T2_RFC9529__R : NULL;
+	c_r.r_key_id = r_key_id;
 	c_r.sk_r.len = 0;
 	c_r.sk_r.ptr = NULL;
 	c_r.pk_r.len = 0;
@@ -354,18 +363,19 @@ static void responder_static_dh_kid(const struct rfc9529_messages *m,
 
 void test_edhoc_initiator_static_dh_kid_rfc9529(void)
 {
-	initiator_static_dh_kid(&t2_messages, T2_RFC9529__PRK_out);
+	initiator_static_dh_kid(&t2_messages, T2_RFC9529__PRK_out, 0, 0);
 }
 
 void test_edhoc_responder_static_dh_kid_rfc9529(void)
 {
 	responder_static_dh_kid(&t2_messages, T2_RFC9529__C_R,
-				T2_RFC9529__C_R_LEN, T2_RFC9529__PRK_out);
+				T2_RFC9529__C_R_LEN, T2_RFC9529__PRK_out, 0, 0);
 }
 
 void test_edhoc_initiator_empty_c_r(void)
 {
-	initiator_static_dh_kid(&t2_empty_c_r_messages, T2_EMPTY_C_R__PRK_out);
+	initiator_static_dh_kid(&t2_empty_c_r_messages, T2_EMPTY_C_R__PRK_out,
+				0, 0);
 }
 
 void test_edhoc_responder_empty_c_r(void)
@@ -374,5 +384,83 @@ void test_edhoc_responder_empty_c_r(void)
 	static const uint8_t empty_c_r[1];
 
 	responder_static_dh_kid(&t2_empty_c_r_messages, empty_c_r, 0,
-				T2_EMPTY_C_R__PRK_out);
+				T2_EMPTY_C_R__PRK_out, 0, 0);
+}
+
+static psa_key_id_t import_p256_key(const uint8_t *sk, uint32_t sk_len)
+{
+	psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
+	psa_key_id_t key_id = PSA_KEY_ID_NULL;
+
+	zassert_equal(psa_crypto_init(), PSA_SUCCESS, "psa_crypto_init failed");
+	psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_DERIVE);
+	psa_set_key_algorithm(&attr, PSA_ALG_ECDH);
+	psa_set_key_type(&attr,
+			 PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
+	zassert_equal(psa_import_key(&attr, sk, sk_len, &key_id), PSA_SUCCESS,
+		      "psa_import_key failed");
+	return key_id;
+}
+
+void test_edhoc_initiator_static_dh_kid_psa_rfc9529(void)
+{
+	psa_key_id_t x_key_id =
+		import_p256_key(T2_RFC9529__X, T2_RFC9529__X_LEN);
+	psa_key_id_t i_key_id =
+		import_p256_key(T2_RFC9529__I, T2_RFC9529__I_LEN);
+
+	initiator_static_dh_kid(&t2_messages, T2_RFC9529__PRK_out, x_key_id,
+				i_key_id);
+
+	psa_destroy_key(x_key_id);
+	psa_destroy_key(i_key_id);
+}
+
+void test_edhoc_responder_static_dh_kid_psa_rfc9529(void)
+{
+	psa_key_id_t y_key_id =
+		import_p256_key(T2_RFC9529__Y, T2_RFC9529__Y_LEN);
+	psa_key_id_t r_key_id =
+		import_p256_key(T2_RFC9529__R, T2_RFC9529__R_LEN);
+
+	responder_static_dh_kid(&t2_messages, T2_RFC9529__C_R,
+				T2_RFC9529__C_R_LEN, T2_RFC9529__PRK_out,
+				y_key_id, r_key_id);
+
+	psa_destroy_key(y_key_id);
+	psa_destroy_key(r_key_id);
+}
+
+void test_ephemeral_dh_key_gen_psa(void)
+{
+	enum err r;
+	uint32_t sk_id;
+	uint8_t pk_buf[32];
+	uint8_t psa_secret[32];
+	uint8_t raw_secret[32];
+	struct byte_array pk = BYTE_ARRAY_INIT(pk_buf, sizeof(pk_buf));
+	struct byte_array peer_sk =
+		BYTE_ARRAY_INIT((uint8_t *)T2_RFC9529__I, T2_RFC9529__I_LEN);
+	struct byte_array peer_pk = BYTE_ARRAY_INIT((uint8_t *)T2_RFC9529__G_I,
+						    T2_RFC9529__G_I_LEN);
+
+	r = ephemeral_dh_key_gen_psa(P256, &sk_id, &pk);
+	zassert_equal(r, ok, "ephemeral_dh_key_gen_psa failed: %d", r);
+	zassert_not_equal(sk_id, 0, "no key ID");
+	zassert_equal(pk.len, sizeof(pk_buf), "wrong public key length");
+
+	r = shared_secret_derive_key(P256, &EMPTY_ARRAY, sk_id, &peer_pk,
+				     psa_secret);
+	zassert_equal(r, ok, "shared_secret_derive_key failed: %d", r);
+
+	r = shared_secret_derive(P256, &peer_sk, &pk, raw_secret);
+	zassert_equal(r, ok, "shared_secret_derive failed: %d", r);
+
+	zassert_mem_equal__(psa_secret, raw_secret, sizeof(psa_secret),
+			    "ECDH mismatch");
+
+	psa_destroy_key(sk_id);
+
+	r = ephemeral_dh_key_gen_psa(X25519, &sk_id, &pk);
+	zassert_equal(r, unsupported_ecdh_curve, "X25519 must be rejected");
 }

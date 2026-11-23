@@ -58,6 +58,8 @@ struct edhoc_responder_context {
 	struct byte_array pk_r; /*coresp. pk to sk_r -use with method 0 and 2*/
 	void *sock; /*pointer used as handler for sockets by tx/rx */
 	void *params_ead_process; /*parameters for processing EAD1 and EAD3 */
+	uint32_t y_key_id; /*PSA key ID used when y is empty*/
+	uint32_t r_key_id; /*PSA key ID used when r is empty*/
 };
 
 struct edhoc_initiator_context {
@@ -76,6 +78,8 @@ struct edhoc_initiator_context {
 	struct byte_array pk_i; /*coresp. pk to sk_r -use with method 0 and 2*/
 	void *sock; /*pointer used as handler for sockets by tx/rx */
 	void *params_ead_process; /*parameters for processing EAD2 and EAD4 */
+	uint32_t x_key_id; /*PSA key ID used when x is empty*/
+	uint32_t i_key_id; /*PSA key ID used when i is empty*/
 };
 
 /**
@@ -94,6 +98,20 @@ struct edhoc_initiator_context {
 enum err WEAK ephemeral_dh_key_gen(enum ecdh_alg alg, uint32_t seed,
 				   struct byte_array *sk,
 				   struct byte_array *pk);
+
+/**
+ * @brief			Generates a volatile ephemeral ECDH key pair in
+ *				PSA, so the private key never leaves the PSA key
+ *				store. The caller destroys the key with
+ *				psa_destroy_key(). Supported with MBEDTLS only.
+ *
+ * @param alg			The ECDH algorithm to be used (P256 only).
+ * @param[out] sk_id 		PSA key ID of the private key.
+ * @param[out] pk 		Public key (x coordinate).
+ * @return 			Ok or error code.
+ */
+enum err ephemeral_dh_key_gen_psa(enum ecdh_alg alg, uint32_t *sk_id,
+				  struct byte_array *pk);
 
 /**
  * @brief   			Executes EDHOC on the initiator side.

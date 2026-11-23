@@ -65,6 +65,9 @@
 #define TEST_EDHOC_INITIATOR_EMPTY_C_R 49
 #define TEST_EDHOC_RESPONDER_EMPTY_C_R 50
 #define T_RETRIEVE_CRED_UNCOMPRESSED_G 51
+#define TEST_EDHOC_INITIATOR_STATIC_DH_KID_PSA_RFC9529 54
+#define TEST_EDHOC_RESPONDER_STATIC_DH_KID_PSA_RFC9529 55
+#define TEST_EPHEMERAL_DH_KEY_GEN_PSA 56
 
 // if this macro is defined all tests will be executed
  #define EXECUTE_ALL_TESTS
@@ -339,6 +342,23 @@ ZTEST(uoscore_uedhoc, test_edhoc_responder_static_dh_kid_rfc9529)
 {
 	skip(TEST_EDHOC_RESPONDER_STATIC_DH_KID_RFC9529,
 	     test_edhoc_responder_static_dh_kid_rfc9529);
+}
+
+ZTEST(uoscore_uedhoc, test_edhoc_initiator_static_dh_kid_psa_rfc9529)
+{
+	skip(TEST_EDHOC_INITIATOR_STATIC_DH_KID_PSA_RFC9529,
+	     test_edhoc_initiator_static_dh_kid_psa_rfc9529);
+}
+
+ZTEST(uoscore_uedhoc, test_edhoc_responder_static_dh_kid_psa_rfc9529)
+{
+	skip(TEST_EDHOC_RESPONDER_STATIC_DH_KID_PSA_RFC9529,
+	     test_edhoc_responder_static_dh_kid_psa_rfc9529);
+}
+
+ZTEST(uoscore_uedhoc, test_ephemeral_dh_key_gen_psa)
+{
+	skip(TEST_EPHEMERAL_DH_KEY_GEN_PSA, test_ephemeral_dh_key_gen_psa);
 }
 
 ZTEST(uoscore_uedhoc, test_edhoc_initiator_empty_c_r)

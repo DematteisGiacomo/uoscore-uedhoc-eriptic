@@ -29,12 +29,15 @@
  * @param[in] prk_in            Input prk.
  * @param[in] stat_pk           Static public DH key. 
  * @param[in] stat_sk           Static secret DH key. 
+ * @param stat_sk_id            PSA key ID of the static secret DH key, used
+ *                              when stat_sk is empty.
  * @param[out] prk_out          The result.
  * @retval                      Ok or error code.
  */
 enum err prk_derive(bool static_dh_auth, struct suite suite, uint8_t label,
 		    struct byte_array *context, const struct byte_array *prk_in,
 		    const struct byte_array *stat_pk,
-		    const struct byte_array *stat_sk, uint8_t *prk_out);
+		    const struct byte_array *stat_sk, uint32_t stat_sk_id,
+		    uint8_t *prk_out);
 
 #endif

@@ -146,7 +146,8 @@ static enum err msg2_process(const struct edhoc_initiator_context *c,
 	/*calculate the DH shared secret*/
 	BYTE_ARRAY_NEW(g_xy, ECDH_SECRET_SIZE, ECDH_SECRET_SIZE);
 
-	TRY(shared_secret_derive(rc->suite.edhoc_ecdh, &c->x, &g_y, g_xy.ptr));
+	TRY(shared_secret_derive_key(rc->suite.edhoc_ecdh, &c->x, c->x_key_id,
+				     &g_y, g_xy.ptr));
 	PRINT_ARRAY("G_XY (ECDH shared secret) ", g_xy.ptr, g_xy.len);
 
 	/*calculate th2*/
@@ -181,7 +182,7 @@ static enum err msg2_process(const struct edhoc_initiator_context *c,
 
 	/*derive prk_3e2m*/
 	TRY(prk_derive(static_dh_r, rc->suite, SALT_3e2m, &th2, &PRK_2e, &g_r,
-		       &c->x, PRK_3e2m->ptr));
+		       &c->x, c->x_key_id, PRK_3e2m->ptr));
 	PRINT_ARRAY("prk_3e2m", PRK_3e2m->ptr, PRK_3e2m->len);
 
 	TRY(signature_or_mac(VERIFY, static_dh_r, &rc->suite, NULL, &pk,
@@ -193,7 +194,7 @@ static enum err msg2_process(const struct edhoc_initiator_context *c,
 
 	/*derive prk_4e3m*/
 	TRY(prk_derive(static_dh_i, rc->suite, SALT_4e3m, th3, PRK_3e2m, &g_y,
-		       &c->i, rc->prk_4e3m.ptr));
+		       &c->i, c->i_key_id, rc->prk_4e3m.ptr));
 	PRINT_ARRAY("prk_4e3m", rc->prk_4e3m.ptr, rc->prk_4e3m.len);
 
 	return ok;

@@ -62,6 +62,24 @@ void test_edhoc_initiator_empty_c_r(void);
 void test_edhoc_responder_empty_c_r(void);
 
 /**
+ * @brief       Test EDHOC initiator according to RFC9529 Section 3 with the
+ *              private DH keys X and I given as PSA key IDs.
+ */
+void test_edhoc_initiator_static_dh_kid_psa_rfc9529(void);
+
+/**
+ * @brief       Test EDHOC responder according to RFC9529 Section 3 with the
+ *              private DH keys Y and R given as PSA key IDs.
+ */
+void test_edhoc_responder_static_dh_kid_psa_rfc9529(void);
+
+/**
+ * @brief       Tests that ECDH with a key from ephemeral_dh_key_gen_psa()
+ *              matches ECDH with raw keys.
+ */
+void test_ephemeral_dh_key_gen_psa(void);
+
+/**
  * @brief       Tests the compact encoding of a 'kid' in id_cred2kid().
  */
 void t_kid_id_cred2kid(void);

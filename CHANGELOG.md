@@ -19,6 +19,13 @@ version tags.
 - **Cipher suites:** the responder now rejects suites that aren't in
   `suites_r`.
 
+### Added
+
+- edhoc: the private ECDH keys (X, Y, I, R) can be given as PSA key IDs, so
+  they never leave the PSA key store (Mbed TLS only). Leave the raw key empty
+  and set `x_key_id`, `y_key_id`, `i_key_id` or `r_key_id`. New
+  `ephemeral_dh_key_gen_psa()` generates the ephemeral key pair in PSA.
+
 ### Fixed
 - EDHOC: a static DH public key given as an uncompressed P-256 point (65
   bytes) in `other_party_cred.g` is now used as its x-coordinate. It was
